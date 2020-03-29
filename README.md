@@ -22,10 +22,10 @@ Defines, how many bytes are used to define an integer. Examples:
 * 0x02: two byte integer (-32768, 32767) (Arduino int, Java short)
 * 0x04: four byte integer (-2^31-1, 2^31) (Arduino long, Java int)
 
-### Byte-count-Byte
+### Bytes per command - byte
 Defines, how many bytes are sent per batch. Every batch has to be of the following structure:
 * command byte (1 byte)
-* data bytes (n * Integer-representation-Byte): where n is the number of Integer values that are sent
+* data bytes (n * Integer-representation-Byte): where n is the number of Integer values that are sent (message length)
 Consequently, the Byte-count-Byte is the sum of all bytes: byte-count-byte = 1 + n * integer-representation-byte
 
 ### Batch-size-Byte

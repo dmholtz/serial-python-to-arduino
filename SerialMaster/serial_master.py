@@ -8,13 +8,14 @@ by dmholtz
 import serial
 import serial.tools.list_ports_windows
 import serial.tools.list_ports_linux
+from itertools import zip_longest
 import time
 import sys
 import platform
 
 class SerialCommunicator():
 
-    SETUP_INIT = 0xFF
+    SETUP_INIT_BYTE = 0xFF
 
     def __init__(self, port, baudrate = 115200):
         """Initializes a SerialCommunicator object by trying to establish a 
@@ -33,10 +34,10 @@ class SerialCommunicator():
             self.port = serial.Serial(port, baudrate)       
             
             # Wait 3 seconds, otherwise serial communication might fail
-            for i in range(100):
+            for i in range(50):
                 sys.stdout.write('.')
                 sys.stdout.flush()
-                time.sleep(0.03)
+                time.sleep(0.06)
             print('\nSuccessfully connect to port', port,'@baudrate:', baudrate)
         except:
             raise IOError('Cannot connect to port '+port)
@@ -59,6 +60,67 @@ class SerialCommunicator():
 
         autoport = available_ports[0]
         return cls(autoport, baudrate)
+
+    def client_setup(self, int_rep, msg_length, batch_size):
+
+        self.int_rep = 1
+        self.msg_length = 3
+        self.batch_size = 1
+        self.bytes_per_cmd = 4
+
+        setup_params = list([int_rep, msg_length, batch_size])
+        setup_params = SerialCommunicator.to_bytestream(setup_params, size=1)
+        setup_cmd = list([(SerialCommunicator.SETUP_INIT_BYTE, setup_params)])
+        print(setup_cmd)
+        self.send(setup_cmd)
+
+        self.int_rep = int_rep
+        self.msg_length = msg_length
+        self.bytes_per_cmd = msg_length * self.int_rep + 1
+        self.batch_size = batch_size
+
+    def send(self, commands):
+        """Converts a list of command tuples into a list of byte commands, i.e.
+        a list of a list of bytes. Sends the byte commands as a batch.
+
+        Args:
+            * commands (list(): list of command tuples (operation_id, params), 
+            list must contain between one and 'self.batch_size' tuples.
+
+        """
+
+        if len(commands) > self.batch_size or len(commands) < 1:
+            raise ValueError('Number of commands must be at least one and may \
+                not exceed the batch size.')
+
+        byte_cmds = list()
+        for (operation_id, params) in commands:
+            byte_cmd = list()
+            byte_cmd.append(operation_id)
+            byte_cmd.extend(SerialCommunicator.to_bytestream(params, \
+                 size = self.int_rep))
+            byte_cmds.append(byte_cmd)
+
+        self._send_batch(byte_cmds)
+
+    def _send_batch(self, byte_cmds):
+        """Sends a list of bytes and awaits the clients responds
+
+        """
+        assert self.batch_size >= len(byte_cmds)
+        for (_, cmd) in zip_longest(range(self.batch_size), byte_cmds, \
+            fillvalue=self._empty_cmd()):
+            self.port.write(bytes(cmd))
+        while self.port.in_waiting < 1:
+            pass
+        print(self.port.readline())
+
+    def _empty_cmd(self):
+        """Returns an empty command consisting only of zero bytes and this
+        instance's messeage length.
+        """
+
+        return [0]*self.bytes_per_cmd
 
     @staticmethod
     def list_ports(log_enabled = True):
@@ -84,12 +146,6 @@ class SerialCommunicator():
 
         return port_identifiers
 
-    def client_setup(self, int_rep, msg_length, batch_size):
-
-        self.int_rep = int_rep
-        self.msg_length = msg_length
-        self.batch_size = batch_size
-
     @staticmethod
     def to_bytes(value, size = 1):
         """Splits an integer value into bytes and returns them as a list.
@@ -110,7 +166,7 @@ class SerialCommunicator():
 
         result = list()
         if value >= 0:
-            for i in range(size):
+            for _ in range(size):
                 result.append(value % 256)
                 value = value // 256
             result.reverse()
@@ -135,6 +191,8 @@ class SerialCommunicator():
         for value in values:
             result.extend(SerialCommunicator.to_bytes(value, size))
         return result
+
+    
 
 
 
