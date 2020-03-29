@@ -1,0 +1,3 @@
+[submodule "SerialClient"]
+	path = SerialClient
+	url = https://github.com/dmholtz/SerialClient.git
