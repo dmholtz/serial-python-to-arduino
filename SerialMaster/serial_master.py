@@ -71,7 +71,7 @@ class SerialCommunicator():
         setup_params = list([int_rep, msg_length, batch_size])
         setup_params = SerialCommunicator.to_bytestream(setup_params, size=1)
         setup_cmd = list([(SerialCommunicator.SETUP_INIT_BYTE, setup_params)])
-        print(setup_cmd)
+        #print(setup_cmd)
         self.send(setup_cmd)
 
         self.int_rep = int_rep
